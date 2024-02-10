@@ -1,0 +1,411 @@
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn import tree
+from sklearn.ensemble import AdaBoostClassifier
+from sklearn.neural_network import MLPClassifier
+from sklearn.svm import SVC
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import GridSearchCV
+
+import numpy as np
+import matplotlib.pyplot as plt
+import csv
+import random
+import re
+import arff
+import pandas as pd
+
+floatToLabel = {}
+labelToFloat = {}
+labelCount = {}
+floatMapping = 0
+
+def make_meshgrid(x, y, h=.02):
+    x_min, x_max = x.min() - 1, x.max() + 1
+    y_min, y_max = y.min() - 1, y.max() + 1
+    xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
+    return xx, yy
+
+def plot_contours(ax, clf, xx, yy, **params):
+    Z = clf.predict(np.c_[xx.ravel(), yy.ravel()])
+    Z = Z.reshape(xx.shape)
+    out = ax.contourf(xx, yy, Z, **params)
+    return out
+
+def readIrisData():
+	file = open("iris.data", "r")
+	data = file.read()
+	data = data.splitlines()
+	for i in range(len(data)):
+		data[i] = str(data[i]).split(",")
+	return data
+
+def readAppleData():
+	with open('apple_quality.csv', newline='') as csvfile:
+    		data = list(csv.reader(csvfile))
+	return data
+
+def projectDT(newData):
+	x = []
+	y = []
+	random.shuffle(newData)
+
+	trainLen = (int)(len(newData) * 0.8)
+	train_data = newData[:trainLen]
+	test_data = newData[trainLen:]
+
+	#doKNN(train_data, test_data, 5)
+	#doDT(train_data, test_data, 25)
+	#doBDT(train_data, test_data, 8, 20)
+	#doNN(train_data, test_data, 19, 20)
+	#doSVM(train_data, test_data)
+
+	
+	innerLoops = 50
+	for i in range(1000):
+		x.append(i+1)
+		meanSucc = 0
+		for j in range(innerLoops):
+			random.shuffle(newData)
+			trainLen = (int)(len(newData) * 0.8)
+			train_data = newData[:trainLen]
+			test_data = newData[trainLen:]
+			meanSucc += doDT(train_data, test_data, i+1)
+	
+		y.append(meanSucc/innerLoops)
+	print(x,y)
+	plt.plot(x,y)
+	plt.grid()
+	plt.show()
+
+
+def projectKNN(newData):
+	x = []
+	y = []
+	random.shuffle(newData)
+
+	trainLen = (int)(len(newData) * 0.8)
+	train_data = newData[:trainLen]
+	test_data = newData[trainLen:]
+
+	#doKNN(train_data, test_data, 5)
+	#doDT(train_data, test_data, 25)
+	#doBDT(train_data, test_data, 8, 20)
+	#doNN(train_data, test_data, 19, 20)
+	#doSVM(train_data, test_data)
+
+	
+	innerLoops = 50
+	for i in range(100):
+		x.append(i+1)
+		meanSucc = 0
+		for j in range(innerLoops):
+			random.shuffle(newData)
+			trainLen = (int)(len(newData) * 0.8)
+			train_data = newData[:trainLen]
+			test_data = newData[trainLen:]
+			meanSucc += doKNN(train_data, test_data, i+1)
+	
+		y.append(meanSucc/innerLoops)
+	print(x,y)
+	plt.plot(x,y)
+	plt.grid()
+	plt.show()
+
+def projectNN(newData):
+	x = []
+	y = []
+	z = []
+	random.shuffle(newData)
+
+	trainLen = (int)(len(newData) * 0.8)
+	train_data = newData[:trainLen]
+	test_data = newData[trainLen:]
+
+	xx = -1
+	yy= -1
+	maxProb = 0
+	innerLoops = 5
+	for i in range(20):
+		x.append(i+1)
+		y.append(i+1)
+		for j in range(20):
+			meanSucc = 0
+			for k in range(innerLoops):
+				random.shuffle(newData)
+				trainLen = (int)(len(newData) * 0.8)
+				train_data = newData[:trainLen]
+				test_data = newData[trainLen:]
+				meanSucc += doNN(train_data, test_data, i+1, j+1)
+	
+			if(meanSucc>maxProb):
+				maxProb = meanSucc
+				xx= i+1
+				yy=j+1
+			z.append(meanSucc/innerLoops)
+	print(xx, yy, maxProb/innerLoops)
+	X, Y = np.meshgrid(x, y)
+	Z = np.array(z).reshape(X.shape)
+
+	ax = plt.axes(projection='3d')
+	ax.plot_surface(X, Y, Z)
+	plt.show()
+
+def projectBDT(newData):
+	x = []
+	y = []
+	z = []
+	random.shuffle(newData)
+
+	trainLen = (int)(len(newData) * 0.8)
+	train_data = newData[:trainLen]
+	test_data = newData[trainLen:]
+
+	#doKNN(train_data, test_data, 5)
+	#doDT(train_data, test_data, 30)
+	#doBDT(train_data, test_data, 8, 20)
+	#doNN(train_data, test_data, 19, 20)
+	#doSVM(train_data, test_data)
+	xx = -1
+	yy= -1
+	maxProb = 0
+	innerLoops = 10
+	for i in range(50):
+		x.append(i+1)
+		y.append(i+1)
+		for j in range(50):
+			meanSucc = 0
+			for k in range(innerLoops):
+				random.shuffle(newData)
+				trainLen = (int)(len(newData) * 0.8)
+				train_data = newData[:trainLen]
+				test_data = newData[trainLen:]
+				meanSucc += doBDT(train_data, test_data, i+1, j+1)
+	
+			if(meanSucc>maxProb):
+				maxProb = meanSucc
+				xx= i+1
+				yy=j+1
+			z.append(meanSucc/innerLoops)
+	print(xx, yy, maxProb/innerLoops)
+	X, Y = np.meshgrid(x, y)
+	Z = np.array(z).reshape(X.shape)
+
+	ax = plt.axes(projection='3d')
+	ax.plot_surface(X, Y, Z)
+	plt.show()
+
+def projectSVM(newData):
+	x = []
+	y = []
+	random.shuffle(newData)
+
+	trainLen = (int)(len(newData) * 0.8)
+	train_data = newData[:trainLen]
+	test_data = newData[trainLen:]
+
+	#doKNN(train_data, test_data, 5)
+	#doDT(train_data, test_data, 25)
+	#doBDT(train_data, test_data, 8, 20)
+	#doNN(train_data, test_data, 19, 20)
+	#doSVM(train_data, test_data)
+
+	innerLoops = 1
+
+	for i in range(4):
+		x.append(i+1)
+		meanSucc = 0
+		for j in range(innerLoops):
+			print(j)
+			random.shuffle(newData)
+			trainLen = (int)(len(newData) * 0.8)
+			train_data = newData[:trainLen]
+			test_data = newData[trainLen:]
+			meanSucc += doSVM(train_data, test_data, i)
+	
+		y.append(meanSucc/innerLoops)
+	#print(x,y)
+	#plt.plot(x,y)
+	#plt.grid()
+	#plt.show()
+
+def main():
+	mLabel = ""
+	mLabelOccur = 0
+	ltot = 0
+	floatMapping = float(0)
+	
+	print("Do you want to model Iris Data? Or Apple Data?")
+	print("1. Iris Data")
+	print("2. Apple Data")
+
+	iris = True
+	if(input() == "2"):
+		data = readAppleData()
+		iris = False
+	else:
+		data = readIrisData()
+
+	newData = []
+
+	for i in range(len(data)-1):
+		newDataLine = []
+		dataLabel = 0
+		for j in range(len(data[i])):
+			if(i==0):
+				continue
+			if(j==len(data[i])-1):
+				label = data[i][j]
+				if label not in labelToFloat:
+					labelToFloat[data[i][j]] = floatMapping
+					floatToLabel[floatMapping] = data[i][j]
+					floatMapping+=1
+				if label not in labelCount:
+					labelCount[data[i][j]] = 1
+				else:
+					labelCount[data[i][j]] += 1
+				if(labelCount[label] > mLabelOccur):
+					mLabelOccur = labelCount[label]
+					mLabel = label
+				dataLabel = labelToFloat[data[i][j]]
+				newDataLine.append(dataLabel)
+				ltot += 1
+			else:
+				toAdd = (float)(data[i][j])
+				#toAdd = re.split('/|:| ', toAdd)
+				newDataLine.append(toAdd)
+		if(i!=0):
+			if(len(newDataLine)!=0):
+				newData.append(newDataLine)
+
+	random.shuffle(newData)
+
+	trainLen = (int)(len(newData) * 0.8)
+	train_data = newData[:trainLen]
+	test_data = newData[trainLen:]
+
+	if iris:
+		print("Iris Performance:")
+		doKNN(train_data, test_data, 13)#97
+		doDT(train_data, test_data, 25)#96
+		doBDT(train_data, test_data, 8, 20)#96
+		doNN(train_data, test_data, 14, 17)#96
+		doSVM(train_data, test_data, 1) #98
+
+	else:
+		print("Apple Performance:")
+		doKNN(train_data, test_data, 2) #58
+		doDT(train_data, test_data, 25) # 81
+		doBDT(train_data, test_data, 15, 49) #87
+		doNN(train_data, test_data, 15, 11) #80
+		doSVM(train_data, test_data, 0) #74
+
+	
+
+def doSVM(train_data, test_data, kernel_ind):
+	funcs = ['linear', 'poly', 'rbf', 'sigmoid']
+	TrY = np.array(train_data)[:, -1] 
+	TrX = np.array(train_data)[:, :-1]
+	TY = np.array(test_data)[:, -1] 
+	TX = np.array(test_data)[:, :-1]
+
+	clf = SVC(kernel = funcs[kernel_ind])
+	clf.fit(TrX, TrY)
+	pred = clf.predict(TX)
+
+	succ = 0
+	tot = 0
+	for i in range(len(pred)):
+		if(pred[i]==TY[i]):
+			succ+=1
+		tot+=1
+	print("SVM: ", (succ/tot))
+	
+	return succ/tot
+
+def doNN(train_data, test_data, layers, layer_size):
+	TrY = np.array(train_data)[:, -1] 
+	TrX = np.array(train_data)[:, :-1]
+	TY = np.array(test_data)[:, -1]
+	TX = np.array(test_data)[:, :-1]
+
+	clf = MLPClassifier(solver='adam', alpha=1e-5, hidden_layer_sizes=(layer_size, layers), random_state=1)
+	clf.fit(TrX, TrY)
+
+	pred = clf.predict(TX)
+	succ = 0
+	tot = 0
+	for i in range(len(pred)):
+		if(pred[i]==TY[i]):
+			succ+=1
+		tot+=1
+	print("NN: ", (succ/tot))
+	return succ/tot
+
+
+def doBDT(train_data, test_data, max_depth, estimators):
+	TrY = np.array(train_data)[:, -1] 
+	TrX = np.array(train_data)[:, :-1]
+	TY = np.array(test_data)[:, -1] 
+	TX = np.array(test_data)[:, :-1]
+
+	base_model = tree.DecisionTreeClassifier(max_depth=max_depth)
+
+	adaboost_classifier = AdaBoostClassifier(base_model, n_estimators=estimators)
+
+	adaboost_classifier.fit(TrX, TrY)
+
+	pred = adaboost_classifier.predict(TX)
+
+	succ = 0
+	tot = 0
+	for i in range(len(pred)):
+		if(pred[i]==TY[i]):
+			succ+=1
+		tot+=1
+	print("BDT: ", (succ/tot))
+	return succ/tot
+	
+
+def doDT(train_data, test_data, max_depth):
+	TrY = np.array(train_data)[:, -1] 
+	TrX = np.array(train_data)[:, :-1]
+
+	#clf  = tree.DecisionTreeClassifier(max_depth = max_depth)
+	clf  = tree.DecisionTreeClassifier(max_depth = max_depth, min_samples_split=3, min_samples_leaf=3, min_impurity_decrease=0.0001)
+	clf = clf.fit(TrX,TrY)
+
+	TY = np.array(test_data)[:, -1] 
+	TX = np.array(test_data)[:, :-1]
+
+	pred = clf.predict(TX)
+
+	succ = 0
+	tot = 0
+	for i in range(len(pred)):
+		if(pred[i]==TY[i]):
+			succ+=1
+		tot+=1
+	print("DT: ", (succ/tot))
+	return succ/tot
+		
+
+def doKNN(train_data, test_data, k):
+	TrY = np.array(train_data)[:, -1] 
+	TrX = np.array(train_data)[:, :-1]
+	TY = np.array(test_data)[:, -1] 
+	TX = np.array(test_data)[:, :-1]
+
+	neigh = KNeighborsClassifier(n_neighbors=k)
+	neigh.fit(TrX, TrY)
+
+	pred = neigh.predict(TX)
+
+	succ = 0
+	tot = 0
+	for i in range(len(pred)):
+		if(pred[i]==TY[i]):
+			succ+=1
+		tot+=1
+	print("KNN: ", (succ/tot))
+	return succ/tot
+main()
